@@ -6,7 +6,8 @@
 /.build
 /.release
 /.tarballs
-
+/alertmanager.iml
+.idea
 !/doc/examples/simple.yml
 !/circle.yml
 !/.travis.yml
