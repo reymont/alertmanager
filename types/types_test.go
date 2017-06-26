@@ -14,13 +14,49 @@
 package types
 
 import (
-	"encoding/json"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
 	"github.com/prometheus/common/model"
 )
+
+func TestMatcher(t *testing.T) {
+	m := NewMatcher("foo", "bar")
+
+	if m.String() != "foo=\"bar\"" {
+		t.Errorf("unexpected matcher string %#v", m.String())
+	}
+
+	re, err := regexp.Compile(".*")
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	m = NewRegexMatcher("foo", re)
+
+	if m.String() != "foo=~\".*\"" {
+		t.Errorf("unexpected matcher string %#v", m.String())
+	}
+}
+
+func TestMatchers(t *testing.T) {
+	m1 := NewMatcher("foo", "bar")
+
+	re, err := regexp.Compile(".*")
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	m2 := NewRegexMatcher("bar", re)
+
+	matchers := NewMatchers(m1, m2)
+
+	if matchers.String() != "{bar=~\".*\",foo=\"bar\"}" {
+		t.Errorf("unexpected matcher string %#v", matchers.String())
+	}
+}
 
 func TestAlertMerge(t *testing.T) {
 	now := time.Now()
@@ -59,73 +95,6 @@ func TestAlertMerge(t *testing.T) {
 	for _, p := range pairs {
 		if res := p.A.Merge(p.B); !reflect.DeepEqual(p.Res, res) {
 			t.Errorf("unexpected merged alert %#v", res)
-		}
-	}
-}
-
-func TestAlertStatusMarshal(t *testing.T) {
-	type statusTest struct {
-		alertStatus             AlertStatus
-		status                  string
-		inhibitedBy, silencedBy []string
-	}
-
-	tests := []statusTest{
-		statusTest{
-			alertStatus: AlertStatus{},
-			status:      "unprocessed",
-			inhibitedBy: []string{},
-			silencedBy:  []string{},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: AlertStateUnprocessed},
-			status:      "unprocessed",
-			inhibitedBy: []string{},
-			silencedBy:  []string{},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: AlertStateActive},
-			status:      "active",
-			inhibitedBy: []string{},
-			silencedBy:  []string{},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: AlertStateSuppressed, SilencedBy: []string{"123456"}},
-			status:      "suppressed",
-			inhibitedBy: []string{},
-			silencedBy:  []string{"123456"},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: AlertStateSuppressed, SilencedBy: []string{"123456"}, InhibitedBy: []string{"123", "456"}},
-			status:      "suppressed",
-			inhibitedBy: []string{"123", "456"},
-			silencedBy:  []string{"123456"},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: AlertStateSuppressed},
-			status:      "suppressed",
-			silencedBy:  []string{},
-			inhibitedBy: []string{},
-		},
-		statusTest{
-			alertStatus: AlertStatus{Status: 255},
-			status:      "unknown",
-			silencedBy:  []string{},
-			inhibitedBy: []string{},
-		},
-	}
-	for _, asTest := range tests {
-		b, err := json.Marshal(&asTest.alertStatus)
-		if err != nil {
-			t.Error(err)
-		}
-		expectedJSON, _ := json.Marshal(map[string]interface{}{
-			"status":      asTest.status,
-			"silencedBy":  asTest.silencedBy,
-			"inhibitedBy": asTest.inhibitedBy,
-		})
-		if string(b) != string(expectedJSON) {
-			t.Errorf("%v serialization failed, expected %s, got %s", asTest.alertStatus, expectedJSON, b)
 		}
 	}
 }
