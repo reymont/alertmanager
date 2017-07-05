@@ -207,6 +207,7 @@ func BuildPipeline(
 }
 
 // createStage creates a pipeline of stages for a receiver.
+//创建staged的pipline
 func createStage(rc *config.Receiver, tmpl *template.Template, wait func() time.Duration, notificationLog nflog.Log) Stage {
 	var fs FanoutStage
 	for _, i := range BuildReceiverIntegrations(rc, tmpl) {
@@ -265,6 +266,7 @@ func (ms MultiStage) Exec(ctx context.Context, alerts ...*types.Alert) (context.
 }
 
 // FanoutStage executes its stages concurrently
+//同步执行stages
 type FanoutStage []Stage
 
 // Exec attempts to execute all stages concurrently and discards the results.
@@ -556,6 +558,7 @@ func NewRetryStage(i Integration) *RetryStage {
 }
 
 // Exec implements the Stage interface.
+//不断的尝试发送邮件
 func (r RetryStage) Exec(ctx context.Context, alerts ...*types.Alert) (context.Context, []*types.Alert, error) {
 	var (
 		i    = 0

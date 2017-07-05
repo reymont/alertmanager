@@ -234,6 +234,7 @@ type notifyFunc func(context.Context, ...*types.Alert) bool
 func (d *Dispatcher) processAlert(alert *types.Alert, route *Route) {
 	group := model.LabelSet{}
 
+	//将alert.Labels中的键值对转换到group中去
 	for ln, lv := range alert.Labels {
 		if _, ok := route.RouteOpts.GroupBy[ln]; ok {
 			group[ln] = lv
@@ -243,6 +244,7 @@ func (d *Dispatcher) processAlert(alert *types.Alert, route *Route) {
 	fp := group.Fingerprint()
 
 	d.mtx.Lock()
+	//根据route构造groups，并将groups传递给newAggrGroup
 	groups, ok := d.aggrGroups[route]
 	if !ok {
 		groups = map[model.Fingerprint]*aggrGroup{}
@@ -256,7 +258,9 @@ func (d *Dispatcher) processAlert(alert *types.Alert, route *Route) {
 		ag = newAggrGroup(d.ctx, group, route, d.timeout)
 		groups[fp] = ag
 
+		//在aggrGroup中设置完keyGroupKey，传递给d.stage.Exec
 		go ag.run(func(ctx context.Context, alerts ...*types.Alert) bool {
+			//先调用RoutingStage，获取目标实际的stage，然后调用特定的例如RetryStage.Exec
 			_, _, err := d.stage.Exec(ctx, alerts...)
 			if err != nil {
 				log.Errorf("Notify for %d alerts failed: %s", len(alerts), err)
@@ -354,6 +358,7 @@ func (ag *aggrGroup) run(nf notifyFunc) {
 			ctx = notify.WithNow(ctx, now)
 
 			// Populate context with information needed along the pipeline.
+		        //生成pipeline上下文
 			ctx = notify.WithGroupKey(ctx, ag.GroupKey())
 			ctx = notify.WithGroupLabels(ctx, ag.labels)
 			ctx = notify.WithReceiverName(ctx, ag.opts.Receiver)
